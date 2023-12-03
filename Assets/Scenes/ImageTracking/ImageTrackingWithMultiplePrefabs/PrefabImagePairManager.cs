@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR.ARSubsystems;
 using UnityEngine.XR.ARFoundation;
+using System.Collections;
 
 namespace UnityEngine.XR.ARFoundation.Samples
 {
@@ -15,12 +16,18 @@ namespace UnityEngine.XR.ARFoundation.Samples
     /// and overlays some prefabs on top of the detected image.
     /// </summary>
     [RequireComponent(typeof(ARTrackedImageManager))]
+    
     public class PrefabImagePairManager : MonoBehaviour, ISerializationCallbackReceiver
     {
         /// <summary>
         /// Used to associate an `XRReferenceImage` with a Prefab by using the `XRReferenceImage`'s guid as a unique identifier for a particular reference image.
         /// </summary>
+        /// 
+        private GameObject m_CurrentlyInstantiatedPrefab;
+        private Vector3 m_LastPrefabPosition;
+        
         [Serializable]
+
         struct NamedPrefab
         {
             // System.Guid isn't serializable, so we store the Guid as a string. At runtime, this is converted back to a System.Guid
@@ -35,6 +42,7 @@ namespace UnityEngine.XR.ARFoundation.Samples
         }
 
         [SerializeField]
+
         [HideInInspector]
         List<NamedPrefab> m_PrefabsList = new List<NamedPrefab>();
 
@@ -46,6 +54,56 @@ namespace UnityEngine.XR.ARFoundation.Samples
         [Tooltip("Reference Image Library")]
         XRReferenceImageLibrary m_ImageLibrary;
 
+        [SerializeField]
+        [Tooltip("Reference Image Library")]
+        AudioSource introductionAudio;
+
+        [SerializeField]
+        GameObject Long_Short_Buttons;
+
+        [SerializeField]
+        AudioSource Explanation1;
+
+        [SerializeField]
+        AudioSource Explanation2;
+
+        [SerializeField]
+        GameObject Formula;
+
+        [SerializeField]
+        GameObject LongerPrefab;
+
+        [SerializeField]
+        AudioSource LongerExp;
+
+        [SerializeField]
+        AudioSource ShorterExp;
+
+        [SerializeField]
+        AudioSource LongerEnd;
+
+        [SerializeField]
+        AudioSource ShorterEnd;
+
+        [SerializeField]
+        printer prin;
+
+        [SerializeField]
+        GameObject LongerData;
+
+        [SerializeField]
+        GameObject ShorterData;
+
+        [SerializeField]
+        GameObject LengthSlider;
+
+        [SerializeField]
+        AudioSource Finale;
+
+        [SerializeField]
+        GameObject PrintMarker;
+
+
         /// <summary>
         /// Get the <c>XRReferenceImageLibrary</c>
         /// </summary>
@@ -54,6 +112,7 @@ namespace UnityEngine.XR.ARFoundation.Samples
             get => m_ImageLibrary;
             set => m_ImageLibrary = value;
         }
+
 
         public void OnBeforeSerialize()
         {
@@ -102,7 +161,77 @@ namespace UnityEngine.XR.ARFoundation.Samples
         void AssignPrefab(ARTrackedImage trackedImage)
         {
             if (m_PrefabsDictionary.TryGetValue(trackedImage.referenceImage.guid, out var prefab))
+            {
+                m_CurrentlyInstantiatedPrefab = Instantiate(prefab, trackedImage.transform);
                 m_Instantiated[trackedImage.referenceImage.guid] = Instantiate(prefab, trackedImage.transform);
+                Debug.Log($"Prefab instantiated for {trackedImage.referenceImage.name} with Movment script: {prefab.GetComponent<Movment>() != null}");
+                PrintMarker.SetActive(false);
+                introductionAudio.Play();
+                StartCoroutine(WaitforIntro());
+                ///Long_Short_Buttons.SetActive(true);
+
+
+            }
+
+        }
+        IEnumerator WaitforIntro()
+        {
+            yield return new WaitForSeconds(introductionAudio.clip.length);
+            Explanation1.Play();
+            yield return new WaitForSeconds(Explanation1.clip.length);
+            Formula.SetActive(true);
+            yield return new WaitForSecondsRealtime(4);
+            Formula.SetActive(false);
+            Explanation2.Play();
+            yield return new WaitForSeconds(Explanation2.clip.length);
+            Long_Short_Buttons.SetActive(true);
+
+
+
+        }
+         
+        public void Longer()
+        {
+            Long_Short_Buttons.SetActive(false );
+            LongerData.SetActive(true);
+            LongerExp.Play();
+            StartCoroutine(WaitForLonger());
+
+        }
+
+        public void Shorter()
+        {
+            Long_Short_Buttons.SetActive(false ) ;
+            ShorterData.SetActive(true);
+            ShorterExp.Play();
+            StartCoroutine(WaitForShorter());
+        }
+        IEnumerator WaitForLonger()
+        {
+            yield return new WaitForSeconds(LongerExp.clip.length);
+            LongerData.SetActive(false);
+            prin.EditChildInAllActivePrefabsShorter();
+            ShorterData.SetActive(true );
+            ShorterEnd.Play();
+            yield return new WaitForSeconds(ShorterExp.clip.length);
+            ShorterData.SetActive (false );
+            Finale.Play();
+            LengthSlider.SetActive(true );
+            
+
+        }
+        IEnumerator WaitForShorter()
+        {
+            yield return new WaitForSeconds(ShorterExp.clip.length);
+            ShorterData.SetActive(false);
+            prin.EditChildInAllActivePrefabsLonger();
+            LongerData.SetActive(true);
+            LongerEnd.Play();
+            yield return new WaitForSeconds(LongerExp.clip.length);
+            LongerData.SetActive (false );
+            Finale.Play();
+            LengthSlider.SetActive(true);
+
         }
 
         public GameObject GetPrefabForReferenceImage(XRReferenceImage referenceImage)
@@ -160,6 +289,24 @@ namespace UnityEngine.XR.ARFoundation.Samples
                 var libraryProperty = serializedObject.FindProperty(nameof(m_ImageLibrary));
                 EditorGUILayout.PropertyField(libraryProperty);
                 var library = libraryProperty.objectReferenceValue as XRReferenceImageLibrary;
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("introductionAudio"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("Long_Short_Buttons"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("Explanation1"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("Explanation2"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("LongerExp"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("ShorterExp"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("Formula"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("LongerPrefab"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("prin"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("LongerEnd"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("ShorterEnd"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("LongerData"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("ShorterData"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("LengthSlider"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("Finale"));
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("PrintMarker"));
+
+
 
                 //check library changes
                 if (HasLibraryChanged(library))
@@ -196,7 +343,7 @@ namespace UnityEngine.XR.ARFoundation.Samples
                         var tempDictionary = new Dictionary<Guid, GameObject>();
                         foreach (var image in library)
                         {
-                            var prefab = (GameObject) EditorGUILayout.ObjectField(image.name, behaviour.m_PrefabsDictionary[image.guid], typeof(GameObject), false);
+                            var prefab = (GameObject)EditorGUILayout.ObjectField(image.name, behaviour.m_PrefabsDictionary[image.guid], typeof(GameObject), false);
                             tempDictionary.Add(image.guid, prefab);
                         }
 
